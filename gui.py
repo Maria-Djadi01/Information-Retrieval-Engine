@@ -52,10 +52,12 @@ with section1:
     )
 
     query = st.text_input(label="Search", placeholder="Enter your query here")
-    
+
     if index == "DOCS per TERM" and not matching:
         if query:
-            query_df, _, _ = query_find(query, regex=regex, porter_stemmer=porter_stemmer)
+            query_df, _, _ = query_find(
+                query, regex=regex, porter_stemmer=porter_stemmer
+            )
             st.dataframe(query_df)
     elif index == "TERMS per DOC" and not matching:
         loaded_documents = load_documents("data/documents/*.txt")
@@ -65,13 +67,27 @@ with section1:
         st.dataframe(search_document(query, regex=regex, porter_stemmer=porter_stemmer))
     elif matching and matching_model == "Vector Space Model":
         if vec_mode == "Scalar Product":
-            st.dataframe(scalar_product(query, regex=regex, porter_stemmer=porter_stemmer)) 
+            st.dataframe(
+                scalar_product(query, regex=regex, porter_stemmer=porter_stemmer)
+            )
         elif vec_mode == "Cosine Similarity":
-            st.dataframe(cosin_similarity(query, regex=regex, porter_stemmer=porter_stemmer))
+            st.dataframe(
+                cosin_similarity(query, regex=regex, porter_stemmer=porter_stemmer)
+            )
         elif vec_mode == "Jaccard Similarity":
-            st.dataframe(jaccard_measure(query, regex=regex, porter_stemmer=porter_stemmer))
+            st.dataframe(
+                jaccard_measure(query, regex=regex, porter_stemmer=porter_stemmer)
+            )
     elif matching and matching_model == "Probabilistic Model":
-        st.dataframe(model_BM25(query, regex=regex, porter_stemmer=porter_stemmer, k=float(k), b=float(b)))
+        st.dataframe(
+            model_BM25(
+                query,
+                regex=regex,
+                porter_stemmer=porter_stemmer,
+                k=float(k),
+                b=float(b),
+            )
+        )
     elif matching and matching_model == "Boolean Model":
         pass
     elif matching and matching_model == "Data Mining Model":
