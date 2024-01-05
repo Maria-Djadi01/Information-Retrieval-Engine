@@ -35,22 +35,25 @@ def tokenize_doc(document, regex):
         doc = document.split()
     return doc
 
+
 def porter_stemmer_doc(document):
     stemmer = PorterStemmer()
     doc_stem = [stemmer.stem(word) for word in document]
     return doc_stem
+
 
 def lancaster_stemmer_doc(document):
     stemmer = LancasterStemmer()
     doc_stem = [stemmer.stem(word) for word in document]
     return doc_stem
 
+
 def preprocess_doc(document, regex, porter_stemmer):
     if regex:
         document = tokenize_doc(document, True)
     else:
         document = tokenize_doc(document, False)
-    
+
     if porter_stemmer:
         document = porter_stemmer_doc(document)
     else:
@@ -104,17 +107,22 @@ def build_freq_index(documents_folder_path, regex, porter_stemmer):
             freq_index_df["Term"].append(term)
             freq_index_df["Document"].append(doc)
             freq_index_df["Frequency"].append(freq_index[doc][term])
-            freq_index_df["Weight"].append(round(
-                freq_index[doc][term]
-                / max_doc_freq
-                * math.log10((num_docs / num_docs_term) + 1)
-            , 4))
+            freq_index_df["Weight"].append(
+                round(
+                    freq_index[doc][term]
+                    / max_doc_freq
+                    * math.log10((num_docs / num_docs_term) + 1),
+                    4,
+                )
+            )
 
     freq_index_df = pd.DataFrame(freq_index_df)
     # save it intp csv file
     freq_index_df.to_csv(
-        f"data/frequency_indexes/frequency_index_pre_{'porter' if porter_stemmer else 'lancaster'}_{'regex' if regex else 'split'}.csv", index=False
+        f"data/frequency_indexes/frequency_index_pre_{'porter' if porter_stemmer else 'lancaster'}_{'regex' if regex else 'split'}.csv",
+        index=False,
     )
+
 
 def query_find(query, regex, porter_stemmer):
     if regex and porter_stemmer:
@@ -122,28 +130,40 @@ def query_find(query, regex, porter_stemmer):
         df = pd.read_csv("data/frequency_indexes/frequency_index_pre_porter_regex.csv")
     elif regex and not porter_stemmer:
         query_pr = preprocess_doc(query, regex=True, porter_stemmer=False)
-        df = pd.read_csv("data/frequency_indexes/frequency_index_pre_lancaster_regex.csv")
+        df = pd.read_csv(
+            "data/frequency_indexes/frequency_index_pre_lancaster_regex.csv"
+        )
     elif not regex and porter_stemmer:
         query_pr = preprocess_doc(query, regex=False, porter_stemmer=True)
         df = pd.read_csv("data/frequency_indexes/frequency_index_pre_porter_split.csv")
     else:
         query_pr = preprocess_doc(query, regex=False, porter_stemmer=False)
-        df = pd.read_csv("data/frequency_indexes/frequency_index_pre_lancaster_split.csv")
+        df = pd.read_csv(
+            "data/frequency_indexes/frequency_index_pre_lancaster_split.csv"
+        )
     return df[df["Term"].isin(query_pr)], df, query_pr
+
 
 def search_document(documents_number, regex, porter_stemmer):
     if regex and porter_stemmer:
         df = pd.read_csv("data/frequency_indexes/frequency_index_pre_porter_regex.csv")
     elif regex and not porter_stemmer:
-        df = pd.read_csv("data/frequency_indexes/frequency_index_pre_lancaster_regex.csv")
+        df = pd.read_csv(
+            "data/frequency_indexes/frequency_index_pre_lancaster_regex.csv"
+        )
     elif not regex and porter_stemmer:
         df = pd.read_csv("data/frequency_indexes/frequency_index_pre_porter_split.csv")
     else:
-        df = pd.read_csv("data/frequency_indexes/frequency_index_pre_lancaster_split.csv")
+        df = pd.read_csv(
+            "data/frequency_indexes/frequency_index_pre_lancaster_split.csv"
+        )
     return df[df["Document"] == documents_number]
 
+
 def scalar_product(query, regex, porter_stemmer):
-    _, df, query_precessed = query_find(query, regex=regex, porter_stemmer=porter_stemmer)
+    _, df, query_precessed = query_find(
+        query, regex=regex, porter_stemmer=porter_stemmer
+    )
     documents = df["Document"].unique()
     df_sum = {
         "Document": [],
@@ -163,8 +183,11 @@ def scalar_product(query, regex, porter_stemmer):
             df_sum["Relevence"].append(relvence)
     return pd.DataFrame(df_sum).sort_values(by=["Relevence"], ascending=False)
 
+
 def cosin_similarity(query, regex, porter_stemmer):
-    _, df, query_processed = query_find(query, regex=regex, porter_stemmer=porter_stemmer)
+    _, df, query_processed = query_find(
+        query, regex=regex, porter_stemmer=porter_stemmer
+    )
     documents = df["Document"].unique()
 
     df_sum = {"Document": [], "Relevence": []}
@@ -195,8 +218,11 @@ def cosin_similarity(query, regex, porter_stemmer):
     df_sum["Relevence"] = df_sum["Relevence"] / (v_sum_sqrt * w_sum_sqrt)
     return df_sum
 
+
 def jaccard_measure(query, regex, porter_stemmer):
-    _, df, query_processed = query_find(query, regex=regex, porter_stemmer=porter_stemmer)
+    _, df, query_processed = query_find(
+        query, regex=regex, porter_stemmer=porter_stemmer
+    )
     documents = df["Document"].unique()
     df_sum = {"Document": [], "Relevence": []}
     for doc in documents:
@@ -221,7 +247,9 @@ def jaccard_measure(query, regex, porter_stemmer):
 
 
 def model_BM25(query, regex, porter_stemmer, k, b):
-    _, df, query_processed = query_find(query, regex=regex, porter_stemmer=porter_stemmer)
+    _, df, query_processed = query_find(
+        query, regex=regex, porter_stemmer=porter_stemmer
+    )
     df_sum = {"Document": [], "Relevence": []}
 
     documents = df["Document"].unique()
@@ -253,37 +281,47 @@ def model_BM25(query, regex, porter_stemmer, k, b):
             df_sum["Relevence"].append(term_sum)
     return pd.DataFrame(df_sum).sort_values(by=["Relevence"], ascending=False)
 
-def boolean_model(query):
-    df = pd.read_csv("data/frequency_indexes/frequency_index_pre_True.csv")
-    documents = df["Document"].unique()
-    list_of_documents = []
-    
-    # Preprocess the query without considering AND, OR, NOT
-    query = query.split()
-    query_pr = [preprocess_doc(term)[0] if term not in ['AND', 'OR', 'NOT'] else term for term in query]
-    print(query_pr)
-    # start with treating the NOT
-    for doc in documents:
-        print(doc)
-        for i in range(len(query_pr)):
-            list_terms = df[df['Document'] == doc]['Term'].tolist()
-            if query_pr[i] == 'NOT':
-                if query_pr[i+1] in list_terms:
-                    list_of_documents.append(doc)
-    
-    # treat the AND and the   OR
-    for doc in documents:
-        print(doc)
-        for i in range(1, len(query_pr)-1):
-            list_terms = df[df['Document'] == doc]['Term'].tolist()
-            # print(list_terms)
-            if query_pr[i] == 'AND':
-                if query_pr[i-1] in list_terms and query_pr[i+1] in list_terms:
-                    list_of_documents.append(doc)
-            elif query_pr[i] == 'OR':
-                if query_pr[i-1] in list_terms or query_pr[i+1] in list_terms:
-                    list_of_documents.append(doc)
-    return list_of_documents
+
+# check if the query is valid or not
+def valid(query_terms):
+    if query_terms[0] in ["AND", "OR"] or query_terms[-1] in ["AND", "OR", "NOT"]:
+        return False
+    for i in range(len(query_terms) - 1):
+        if query_terms[i] in ["AND", "OR"] and query_terms[i + 1] in ["AND", "OR"]:
+            return False
+        if query_terms[i] == "NOT" and query_terms[i + 1] in ["AND", "OR", "NOT"]:
+            return False
+        if query_terms[i] not in ["AND", "OR", "NOT"] and query_terms[i + 1] not in [
+            "AND",
+            "OR",
+            "NOT",
+        ]:
+            return False
+    return True
+
+
+def boolean_similarity(doc_terms, query_terms):
+    for term in query_terms:
+        print(term)
+        print(term not in ["AND", "OR", "NOT"])
+        if term not in ["AND", "OR", "NOT"]:
+            print(term in doc_terms)
+            if term in doc_terms:
+                term = 1
+            else:
+                term = 0
+    print(query_terms)
+    for i in range(len(query_terms)):
+        if query_terms[i] == "AND":
+            relevant = query_terms[i - 1] and query_terms[i + 1]
+        if query_terms[i] == "OR":
+            relevant = query_terms[i - 1] or query_terms[i + 1]
+        if query_terms[i] == "NOT":
+            relevant = not query_terms[i + 1]
+    if relevant:
+        return True
+    else:
+        return False
 
 
 # build_freq_index("data/documents/*.txt", True, True)
@@ -291,6 +329,67 @@ def boolean_model(query):
 # build_freq_index("data/documents/*.txt", False, True)
 # build_freq_index("data/documents/*.txt", False, False)
 
-# query = "GPT-3.5"
+# # query = "GPT-3.5"
+# query = "Documents ranking"
 # query_pr = preprocess_doc(query, True, True)
-# query_find(query_pr, pd.read_csv("data/frequency_indexes/frequency_index_pre_porter_regex.csv"))
+# print(query_pr)
+# _, df, query_precessed = query_find(query, True, True)
+
+
+# list_of_documents = boolean_model(query)
+
+
+# queries = [
+#     "Terme",
+#     "Terme AND Terme",
+#     "Terme OR Terme",
+#     "Terme AND Terme OR Terme",
+#     "NOT Terme",
+#     "NOT Terme AND Terme",
+#     "NOT Terme OR NOT Terme",
+#     "Terme AND NOT Terme",
+#     "NOT Terme AND Terme OR NOT Terme",
+#     "AND",
+#     "OR",
+#     "Terme Terme",
+#     "AND Terme ",
+#     "Terme OR",
+#     "AND OR Terme ",
+#     "Terme AND OR Terme",
+#     "Terme AND Terme AND",
+#     "NOT",
+#     "NOT NOT Terme",
+#     "NOT AND Terme",
+#     "Terme AND NOT",
+#     "Terme AND TERME NOT",
+# ]
+# for query in queries:
+#     query_terms = query.split()
+#     print(query, " => ", valid(query_terms))
+
+
+# import pandas as pd
+
+# df = pd.read_csv("data/frequency_indexes/frequency_index_pre_porter_regex.csv")
+# documents = df["Document"].unique()
+# query = "Documents AND NOT ranking OR queries OR GPT-3.5"
+
+# query_terms = query.split()
+
+# df_result = pd.DataFrame(columns=["Document", "Relevance"])
+
+# doc_terms = df[df["Document"] == "D1"]["Term"].to_list()
+# boolean_similarity(doc_terms, query_terms)
+
+# for doc in documents:
+#     doc_terms = df[df["Document"] == doc]["Term"].to_list()
+#     print(doc_terms)
+#     # print(doc, boolean_similarity(doc_terms, query_terms))
+#     df_result = df_result.append(
+#         {"Document": doc, "Relevance": boolean_similarity(doc_terms, query_terms)},
+#         ignore_index=True,
+#     )
+#     # change True to YES and False to NO
+#     df_result["Relevance"] = df_result["Relevance"].apply(
+#         lambda x: "YES" if x else "NO"
+#     )
