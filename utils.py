@@ -300,28 +300,69 @@ def valid(query_terms):
     return True
 
 
-def boolean_similarity(doc_terms, query_terms):
-    for term in query_terms:
-        print(term)
-        print(term not in ["AND", "OR", "NOT"])
-        if term not in ["AND", "OR", "NOT"]:
-            print(term in doc_terms)
-            if term in doc_terms:
-                term = 1
-            else:
-                term = 0
-    print(query_terms)
+def boolean_similarity(doc_terms, query):
+    query_terms = query.split()
     for i in range(len(query_terms)):
+        if query_terms[i] not in ["AND", "OR", "NOT"]:
+            query_terms[i] = " ".join(preprocess_doc(query_terms[i], True, True))
+
+    for i in range(len(query_terms)):
+        if query_terms[i] not in ["AND", "OR", "NOT"]:
+            if query_terms[i] in doc_terms:
+                query_terms[i] = 1
+            else:
+                query_terms[i] = 0
+
+    # remove NOT
+    i = 0
+    while i < len(query_terms):
+        if query_terms[i] == "NOT":
+            if query_terms[i + 1] == 0:
+                query_terms[i + 1] = 1
+            else:
+                query_terms[i + 1] = 0
+            query_terms.pop(i)
+        else:
+            i += 1
+
+    relevant = 0
+    i = 0
+    while i < len(query_terms):
         if query_terms[i] == "AND":
             relevant = query_terms[i - 1] and query_terms[i + 1]
-        if query_terms[i] == "OR":
+            query_terms[i + 1] = relevant
+            query_terms.pop(i)
+            i += 1
+        elif query_terms[i] == "OR":
             relevant = query_terms[i - 1] or query_terms[i + 1]
-        if query_terms[i] == "NOT":
-            relevant = not query_terms[i + 1]
+            query_terms[i + 1] = relevant
+            query_terms.pop(i)
+            i += 1
+        else:
+            i += 1
+
     if relevant:
-        return True
+        relevant = "YES"
     else:
-        return False
+        relevant = "NO"
+    return relevant
+
+
+def boolean_model(query):
+    query_terms = query.split()
+    if valid(query_terms):
+        df = pd.read_csv("data/frequency_indexes/frequency_index_pre_porter_regex.csv")
+        documents = df["Document"].unique()
+        df_result = pd.DataFrame(columns=["Document", "Relevance"])
+        doc_terms = df[df["Document"] == "D1"]["Term"].to_list()
+        for doc in documents:
+            doc_terms = df[df["Document"] == doc]["Term"].to_list()
+            relevance = boolean_similarity(doc_terms, query)
+            if relevance == "YES":
+                df_result = df_result.append(
+                    {"Document": doc, "Relevance": relevance}, ignore_index=True
+                )
+    return df_result
 
 
 # build_freq_index("data/documents/*.txt", True, True)
@@ -329,67 +370,11 @@ def boolean_similarity(doc_terms, query_terms):
 # build_freq_index("data/documents/*.txt", False, True)
 # build_freq_index("data/documents/*.txt", False, False)
 
-# # query = "GPT-3.5"
-# query = "Documents ranking"
-# query_pr = preprocess_doc(query, True, True)
-# print(query_pr)
-# _, df, query_precessed = query_find(query, True, True)
 
+# ----------------------------------
+# TEST BOOLEAN MODEL
+# ---------------------------------
 
-# list_of_documents = boolean_model(query)
-
-
-# queries = [
-#     "Terme",
-#     "Terme AND Terme",
-#     "Terme OR Terme",
-#     "Terme AND Terme OR Terme",
-#     "NOT Terme",
-#     "NOT Terme AND Terme",
-#     "NOT Terme OR NOT Terme",
-#     "Terme AND NOT Terme",
-#     "NOT Terme AND Terme OR NOT Terme",
-#     "AND",
-#     "OR",
-#     "Terme Terme",
-#     "AND Terme ",
-#     "Terme OR",
-#     "AND OR Terme ",
-#     "Terme AND OR Terme",
-#     "Terme AND Terme AND",
-#     "NOT",
-#     "NOT NOT Terme",
-#     "NOT AND Terme",
-#     "Terme AND NOT",
-#     "Terme AND TERME NOT",
-# ]
-# for query in queries:
-#     query_terms = query.split()
-#     print(query, " => ", valid(query_terms))
-
-
-# import pandas as pd
-
-# df = pd.read_csv("data/frequency_indexes/frequency_index_pre_porter_regex.csv")
-# documents = df["Document"].unique()
 # query = "Documents AND NOT ranking OR queries OR GPT-3.5"
 
-# query_terms = query.split()
-
-# df_result = pd.DataFrame(columns=["Document", "Relevance"])
-
-# doc_terms = df[df["Document"] == "D1"]["Term"].to_list()
-# boolean_similarity(doc_terms, query_terms)
-
-# for doc in documents:
-#     doc_terms = df[df["Document"] == doc]["Term"].to_list()
-#     print(doc_terms)
-#     # print(doc, boolean_similarity(doc_terms, query_terms))
-#     df_result = df_result.append(
-#         {"Document": doc, "Relevance": boolean_similarity(doc_terms, query_terms)},
-#         ignore_index=True,
-#     )
-#     # change True to YES and False to NO
-#     df_result["Relevance"] = df_result["Relevance"].apply(
-#         lambda x: "YES" if x else "NO"
-#     )
+# boolean_model(query)
