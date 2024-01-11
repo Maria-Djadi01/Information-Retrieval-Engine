@@ -349,6 +349,7 @@ def boolean_similarity(doc_terms, query):
 
 
 def boolean_model(query):
+    query_terms = query.split()
     if valid(query_terms):
         df = pd.read_csv("data/frequency_indexes/frequency_index_pre_porter_regex.csv")
         documents = df["Document"].unique()
