@@ -89,6 +89,6 @@ with section1:
             )
         )
     elif matching and matching_model == "Boolean Model":
-        pass
+        st.dataframe(boolean_model(query))
     elif matching and matching_model == "Data Mining Model":
         pass
