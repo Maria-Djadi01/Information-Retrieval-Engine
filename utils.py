@@ -253,6 +253,7 @@ def model_BM25(query, regex, porter_stemmer, k, b):
     _, df, query_processed = query_find(
         query, regex=regex, porter_stemmer=porter_stemmer
     )
+    print(_, query_processed)
     df_sum = {"Document": [], "Relevence": []}
 
     documents = df["Document"].unique()
@@ -283,6 +284,51 @@ def model_BM25(query, regex, porter_stemmer, k, b):
             df_sum["Document"].append(doc)
             df_sum["Relevence"].append(term_sum)
     return pd.DataFrame(df_sum).sort_values(by=["Relevence"], ascending=False)
+
+
+def mod_BM25(query, regex, porter_stemmer, k, b):
+    _, df, query_processed = query_find(
+        query, regex=regex, porter_stemmer=porter_stemmer
+    )
+    # print(_, query_processed)
+    df_sum = {"Document": [], "Relevence": []}
+
+    documents = df["Document"].unique()
+    N = len(documents)
+    term_in_doc = _.groupby("Term", as_index=False)["Document"].count()
+    for doc in documents:
+        # i want to get the sum of terms considering their frequenncy
+        dl = df[df["Document"] == doc]["Frequency"].sum()
+        avdl = (df["Frequency"].sum()) / N
+        relevance = 0
+        for term in query_processed:
+            ni = _.groupby("Term", as_index=False)["Document"].count()
+            doc_df = df[df["Document"] == doc]
+            if "document" in doc_df["Term"].values:
+                freq = doc_df[doc_df["Term"] == "document"]["Frequency"].values[0]
+                ni = term_in_doc[term_in_doc["Term"] == term]["Document"]
+                right = freq / (k * (1 - b) + b * (dl / avdl) + freq)
+                left = math.log10((N - ni + 0.5) / (ni + 0.5))
+                relevance += right * left
+        if relevance != 0:
+            df_sum["Document"].append(doc)
+            df_sum["Relevence"].append(relevance)
+    return pd.DataFrame(df_sum).sort_values(by=["Relevence"], ascending=False)
+
+
+# # query = "Document ranking"
+# query = "Documents ranking queries GPT-3.5"
+# regex = True
+# porter_stemmer = True
+# k = 2
+# b = 1.5
+# mod_BM25(
+#     query,
+#     regex=regex,
+#     porter_stemmer=porter_stemmer,
+#     k=float(k),
+#     b=float(b),
+# )
 
 
 # check if the query is valid or not
@@ -378,7 +424,7 @@ def precision(docs_retrieved, denominator):
     for doc in docs_retrieved:
         if doc:
             nb_docs_true += 1
-    
+
     return nb_docs_true / denominator
 
 
@@ -398,18 +444,15 @@ def evaluation_metrics(regex, porter_stemmer, nb_query):
     query_df = pd.read_csv("data/test/queries.csv")
     query = query_df.iloc[nb_query - 1]["query"]
 
-    judgement_df = pd.read_csv("data/test/judgements.csv").iloc[
-        :, :-1
-    ]
+    judgement_df = pd.read_csv("data/test/judgements.csv").iloc[:, :-1]
     judgement_df = judgement_df[judgement_df["query_number"] == nb_query]
-
 
     df, _, query_processed = query_find(
         query, regex=regex, porter_stemmer=porter_stemmer
     )
     docs_true = judgement_df["document"].tolist()
     docs_retrieved = df["Document"].unique().tolist()
-    
+
     retrieved_documents = []
     for doc in docs_retrieved:
         retrieved_documents.append(doc in docs_true)
@@ -419,7 +462,6 @@ def evaluation_metrics(regex, porter_stemmer, nb_query):
     prec_10 = precision(retrieved_documents[:10], 10)
     rec = recall(retrieved_documents, len(docs_true))
     f_sc = f_score(prec, rec)
-    
 
     return query, prec, prec_5, prec_10, rec, f_sc
 
