@@ -9,19 +9,6 @@ st.title("Information Retrieval")
 section1, section2 = st.columns([3, 2])
 
 with section2:
-    dataMining_model = st.columns(2)
-    with dataMining_model[0]:
-        queriesDataset = st.checkbox("Queries Dataset")
-    with dataMining_model[1]:
-        queryNumber = st.number_input(
-            "Query Number",
-            value=None,
-            step=1,
-            placeholder="Enter query number",
-            disabled=not queriesDataset,
-        )
-    # if queriesDataset:
-
     matching = st.checkbox("Matching")
     matching_model = st.radio(
         label="Matching",
@@ -104,6 +91,4 @@ with section1:
     elif matching and matching_model == "Boolean Model":
         st.dataframe(boolean_model(query))
     elif matching and matching_model == "Data Mining Model":
-        pass
-    elif queriesDataset:
         pass
