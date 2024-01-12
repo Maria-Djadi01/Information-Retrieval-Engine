@@ -394,13 +394,20 @@ def f_score(precision, recall):
 
 
 def evaluation_metrics(regex, porter_stemmer, nb_queries):
-    queries_df = pd.read_csv("D:\\2M\RI\TP\TP1\data\\test\queries.csv").iloc[
-        :nb_queries, 0
-    ]
+    # queries_df = pd.read_csv("D:\\2M\RI\TP\TP1\data\\test\queries.csv").iloc[
+    #     :nb_queries, 0
+    # ]
+    queries_df = pd.read_csv(
+        "../Information-Retrieval-Engine/data/test/queries.csv"
+    ).iloc[:nb_queries, 0]
 
-    judgement_df = pd.read_csv("D:\\2M\RI\TP\TP1\data\\test\judgements.csv").iloc[
-        :, :-1
-    ]
+    # judgement_df = pd.read_csv("D:\\2M\RI\TP\TP1\data\\test\judgements.csv").iloc[
+    #     :, :-1
+    # ]
+    judgement_df = pd.read_csv(
+        "../Information-Retrieval-Engine/data/test/judgements.csv"
+    ).iloc[:, :-1]
+
     last_query_index = judgement_df[
         judgement_df["query_number"] == nb_queries
     ].index.max()
@@ -421,15 +428,16 @@ def evaluation_metrics(regex, porter_stemmer, nb_queries):
             if doc_true == doc_retrieved:
                 nb_true_documents += 1
         nb_retrieved_documents += len(docs_retrieved)
-
+    precision = 0
+    precision5 = 0
     precision = precision(nb_true_documents, nb_retrieved_documents)
     precision5 = precision(nb_true_documents, 5)
 
     return nb_true_documents
 
 
-evaluation_metrics(True, True, 2)
-"D1" == "D1"
+# evaluation_metrics(True, True, 2)
+# "D1" == "D1"
 
 
 # build_freq_index("data/documents/*.txt", True, True)
