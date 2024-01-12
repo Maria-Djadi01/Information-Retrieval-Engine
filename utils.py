@@ -372,58 +372,58 @@ def boolean_model(query):
     return df_result
 
 
-def precision(nb_true_documents, nb_total_documents):
-    return nb_true_documents / nb_total_documents
+def precision(docs_retrieved, denominator):
+    nb_docs_true = 0
+    for doc in docs_retrieved:
+        if doc:
+            nb_docs_true += 1
+    
+    return nb_docs_true / denominator
 
 
-def precision_at_5(_5_true_documents):
-    return precision(_5_true_documents, 5)
-
-
-def precision_at_10(_10_true_documents):
-    return precision(_10_true_documents, 10)
-
-
-def recall(nb_true_documents, nb_retrieved_documents):
-    return nb_true_documents / nb_retrieved_documents
+def recall(docs_retrieved, nb_true_documents):
+    nb_docs_true = 0
+    for doc in docs_retrieved:
+        if doc:
+            nb_docs_true += 1
+    return nb_docs_true / nb_true_documents
 
 
 def f_score(precision, recall):
     return 2 * precision * recall / (precision + recall)
 
 
-def evaluation_metrics(regex, porter_stemmer, nb_queries):
-    queries_df = pd.read_csv("D:\\2M\RI\TP\TP1\data\\test\queries.csv").iloc[
-        :nb_queries, 0
-    ]
-    
-    judgement_df = pd.read_csv("D:\\2M\RI\TP\TP1\data\\test\judgements.csv").iloc[
+def evaluation_metrics(regex, porter_stemmer, nb_query):
+    query_df = pd.read_csv("data/test/queries.csv")
+    query = query_df.iloc[nb_query - 1]["query"]
+
+    judgement_df = pd.read_csv("data/test/judgements.csv").iloc[
         :, :-1
     ]
-    last_query_index = judgement_df[judgement_df['query_number'] == nb_queries].index.max()
-    judgement_df = judgement_df.iloc[:last_query_index + 1, :]
+    judgement_df = judgement_df[judgement_df["query_number"] == nb_query]
+
+
+    df, _, query_processed = query_find(
+        query, regex=regex, porter_stemmer=porter_stemmer
+    )
+    docs_true = judgement_df["document"].tolist()
+    docs_retrieved = df["Document"].unique().tolist()
     
-    nb_true_documents = 0
-    nb_retrieved_documents = 0
-    
-    for i, query in enumerate(queries_df):
-        df, _, query_processed = query_find(
-            query, regex=regex, porter_stemmer=porter_stemmer
-        )
-        docs_true = judgement_df[judgement_df["query_number"] == i + 1]['document'].tolist()
-        docs_retrieved = df["Document"].tolist()
-        for doc_true, doc_retrieved in zip(docs_true, docs_retrieved):
-            if doc_true== doc_retrieved:
-                nb_true_documents += 1
-        nb_retrieved_documents += len(docs_retrieved)
-        
-    precision = precision(nb_true_documents, nb_retrieved_documents)
-    precision5 = precision(nb_true_documents, 5)
+    retrieved_documents = []
+    for doc in docs_retrieved:
+        retrieved_documents.append(doc in docs_true)
+
+    prec = precision(retrieved_documents, len(retrieved_documents))
+    prec_5 = precision(retrieved_documents[:5], 5)
+    prec_10 = precision(retrieved_documents[:10], 10)
+    rec = recall(retrieved_documents, len(docs_true))
+    f_sc = f_score(prec, rec)
     
 
-    return nb_true_documents
+    return query, prec, prec_5, prec_10, rec, f_sc
+
+
 evaluation_metrics(True, True, 2)
-'D1' == 'D1'
 
 
 # build_freq_index("data/documents/*.txt", True, True)

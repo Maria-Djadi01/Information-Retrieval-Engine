@@ -1,7 +1,10 @@
 import streamlit as st
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from utils import *
+
+test_queries = pd.read_csv("data/test/queries.csv")
 
 st.set_page_config(layout="wide")
 
@@ -23,10 +26,14 @@ with section2:
         k = st.text_input(label="K", value=1.5)
         b = st.text_input(label="B", value=0.75)
     if matching_model == "Vector Space Model":
-        vec_mode = st.selectbox(
-            label="Vector Mode",
-            options=["Scalar Product", "Cosine Similarity", "Jaccard Similarity"],
-        )
+        vec_sec1, vec_sec2 = st.columns([6, 2])
+        with vec_sec1:
+            vec_mode = st.selectbox(
+                label="Vector Mode",
+                options=["Scalar Product", "Cosine Similarity", "Jaccard Similarity"],
+            )
+        with vec_sec2:
+            nb_query = st.number_input(label="Number of query", min_value=1, max_value=len(test_queries), value=1, step=1)
     if matching and matching_model == "Vector Space Model":
         # make a random courbe
         x = np.linspace(0, 10, 100)
@@ -50,8 +57,14 @@ with section1:
         horizontal=True,
         disabled=matching,
     )
-
-    query = st.text_input(label="Search", placeholder="Enter your query here")
+    
+    if nb_query:
+        query_eval, prec, prec_5, prec_10, rec, f_sc = evaluation_metrics(
+                    regex=regex, porter_stemmer=porter_stemmer, nb_query=int(nb_query)
+                )
+    else:
+        query_eval = ""
+    query = st.text_input(label="Search", placeholder="Enter your query here", value=query_eval if nb_query is not None else None)
 
     if index == "DOCS per TERM" and not matching:
         if query:
@@ -70,6 +83,19 @@ with section1:
             st.dataframe(
                 scalar_product(query, regex=regex, porter_stemmer=porter_stemmer)
             )
+            
+            sec_prec, sec_prec_5, sec_prec_10, sec_rec, sec_f_sc = st.columns(5)
+            with sec_prec:
+                st.text(f"Precision: {prec}")
+            with sec_prec_5:
+                st.text(f"Precision@5: {prec_5}")
+            with sec_prec_10:
+                st.text(f"Precision@10: {prec_10}")
+            with sec_rec:
+                st.text(f"Recall: {rec}")
+            with sec_f_sc:
+                st.text(f"F-Score: {f_sc}")
+
         elif vec_mode == "Cosine Similarity":
             st.dataframe(
                 cosin_similarity(query, regex=regex, porter_stemmer=porter_stemmer)
