@@ -108,12 +108,15 @@ def build_freq_index(documents_folder_path, regex, porter_stemmer):
             freq_index_df["Document"].append(doc)
             freq_index_df["Frequency"].append(freq_index[doc][term])
             freq_index_df["Weight"].append(
-                round(
-                    freq_index[doc][term]
-                    / max_doc_freq
-                    * math.log10((num_docs / num_docs_term) + 1),
-                    4,
-                )
+                # round(
+                #     freq_index[doc][term]
+                #     / max_doc_freq
+                #     * math.log10((num_docs / num_docs_term) + 1),
+                #     4,
+                # )
+                freq_index[doc][term]
+                / max_doc_freq
+                * math.log10((num_docs / num_docs_term) + 1),
             )
 
     freq_index_df = pd.DataFrame(freq_index_df)
@@ -190,32 +193,32 @@ def cosin_similarity(query, regex, porter_stemmer):
     )
     documents = df["Document"].unique()
 
-    df_sum = {"Document": [], "Relevence": []}
+    df_sum = {"Document": [], "Relevance": []}
 
-    v_sum_sqrt = 0
-    w_sum_sqrt = 1
+    v_sum_squared = 0
+    w_sum_squared = 0
+
     for doc in documents:
-        exists_term = False
-        relvence = 0
+        relevance = 0
         for term in query_processed:
-            term_list = df[df["Document"] == doc]["Term"].tolist()
-            if term in term_list:
-                weight = df[(df["Document"] == doc) & (df["Term"] == term)][
-                    "Weight"
-                ].values[0]
-                relvence += weight
-                w_sum_sqrt += weight**2
-                exists_term = True
-            if exists_term:
-                v_sum_sqrt += 1
-        if relvence != 0:
+            term_rows = df[(df["Document"] == doc) & (df["Term"] == term)]
+            if not term_rows.empty:
+                weight = term_rows["Weight"].values[0]
+                relevance += weight
+                w_sum_squared += weight**2
+                v_sum_squared += 1
+
+        if relevance != 0:
             df_sum["Document"].append(doc)
-            df_sum["Relevence"].append(relvence)
-    df_sum = pd.DataFrame(df_sum).sort_values(by=["Relevence"], ascending=False)
-    v_sum_sqrt = math.sqrt(v_sum_sqrt)
-    w_sum_sqrt = math.sqrt(w_sum_sqrt)
-    print(v_sum_sqrt, w_sum_sqrt)
-    df_sum["Relevence"] = df_sum["Relevence"] / (v_sum_sqrt * w_sum_sqrt)
+            df_sum["Relevance"].append(relevance)
+
+    df_sum = pd.DataFrame(df_sum).sort_values(by=["Relevance"], ascending=False)
+
+    v_sum_sqrt = math.sqrt(v_sum_squared)
+    w_sum_sqrt = math.sqrt(w_sum_squared)
+
+    df_sum["Relevance"] = df_sum["Relevance"] / (v_sum_sqrt * w_sum_sqrt)
+
     return df_sum
 
 
@@ -359,10 +362,68 @@ def boolean_model(query):
             doc_terms = df[df["Document"] == doc]["Term"].to_list()
             relevance = boolean_similarity(doc_terms, query)
             if relevance == "YES":
-                df_result = df_result.append(
-                    {"Document": doc, "Relevance": relevance}, ignore_index=True
+                df_result = pd.concat(
+                    [
+                        df_result,
+                        pd.DataFrame({"Document": [doc], "Relevance": [relevance]}),
+                    ],
+                    ignore_index=True,
                 )
     return df_result
+
+
+def precision(nb_true_documents, nb_total_documents):
+    return nb_true_documents / nb_total_documents
+
+
+def precision_at_5(_5_true_documents):
+    return precision(_5_true_documents, 5)
+
+
+def precision_at_10(_10_true_documents):
+    return precision(_10_true_documents, 10)
+
+
+def recall(nb_true_documents, nb_retrieved_documents):
+    return nb_true_documents / nb_retrieved_documents
+
+
+def f_score(precision, recall):
+    return 2 * precision * recall / (precision + recall)
+
+
+def evaluation_metrics(regex, porter_stemmer, nb_queries):
+    queries_df = pd.read_csv("D:\\2M\RI\TP\TP1\data\\test\queries.csv").iloc[
+        :nb_queries, 0
+    ]
+    
+    judgement_df = pd.read_csv("D:\\2M\RI\TP\TP1\data\\test\judgements.csv").iloc[
+        :, :-1
+    ]
+    last_query_index = judgement_df[judgement_df['query_number'] == nb_queries].index.max()
+    judgement_df = judgement_df.iloc[:last_query_index + 1, :]
+    
+    nb_true_documents = 0
+    nb_retrieved_documents = 0
+    
+    for i, query in enumerate(queries_df):
+        df, _, query_processed = query_find(
+            query, regex=regex, porter_stemmer=porter_stemmer
+        )
+        docs_true = judgement_df[judgement_df["query_number"] == i + 1]['document'].tolist()
+        docs_retrieved = df["Document"].tolist()
+        for doc_true, doc_retrieved in zip(docs_true, docs_retrieved):
+            if doc_true== doc_retrieved:
+                nb_true_documents += 1
+        nb_retrieved_documents += len(docs_retrieved)
+        
+    precision = precision(nb_true_documents, nb_retrieved_documents)
+    precision5 = precision(nb_true_documents, 5)
+    
+
+    return nb_true_documents
+evaluation_metrics(True, True, 2)
+'D1' == 'D1'
 
 
 # build_freq_index("data/documents/*.txt", True, True)
