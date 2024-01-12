@@ -352,23 +352,24 @@ def boolean_similarity(doc_terms, query):
 
 
 def boolean_model(query):
-    query_terms = query.split()
-    if valid(query_terms):
-        df = pd.read_csv("data/frequency_indexes/frequency_index_pre_porter_regex.csv")
-        documents = df["Document"].unique()
-        df_result = pd.DataFrame(columns=["Document", "Relevance"])
-        doc_terms = df[df["Document"] == "D1"]["Term"].to_list()
-        for doc in documents:
-            doc_terms = df[df["Document"] == doc]["Term"].to_list()
-            relevance = boolean_similarity(doc_terms, query)
-            if relevance == "YES":
-                df_result = pd.concat(
-                    [
-                        df_result,
-                        pd.DataFrame({"Document": [doc], "Relevance": [relevance]}),
-                    ],
-                    ignore_index=True,
-                )
+    df_result = pd.DataFrame(columns=["Document", "Relevance"])
+    if query == "":
+        return df_result
+    else:
+        query_terms = query.split()
+        if valid(query_terms):
+            df = pd.read_csv(
+                "data/frequency_indexes/frequency_index_pre_porter_regex.csv"
+            )
+            documents = df["Document"].unique()
+            doc_terms = df[df["Document"] == "D1"]["Term"].to_list()
+            for doc in documents:
+                doc_terms = df[df["Document"] == doc]["Term"].to_list()
+                relevance = boolean_similarity(doc_terms, query)
+                if relevance == "YES":
+                    df_result = df_result.append(
+                        {"Document": doc, "Relevance": relevance}, ignore_index=True
+                    )
     return df_result
 
 
@@ -393,37 +394,50 @@ def f_score(precision, recall):
 
 
 def evaluation_metrics(regex, porter_stemmer, nb_queries):
-    queries_df = pd.read_csv("D:\\2M\RI\TP\TP1\data\\test\queries.csv").iloc[
-        :nb_queries, 0
-    ]
-    
-    judgement_df = pd.read_csv("D:\\2M\RI\TP\TP1\data\\test\judgements.csv").iloc[
-        :, :-1
-    ]
-    last_query_index = judgement_df[judgement_df['query_number'] == nb_queries].index.max()
-    judgement_df = judgement_df.iloc[:last_query_index + 1, :]
-    
+    # queries_df = pd.read_csv("D:\\2M\RI\TP\TP1\data\\test\queries.csv").iloc[
+    #     :nb_queries, 0
+    # ]
+    queries_df = pd.read_csv(
+        "../Information-Retrieval-Engine/data/test/queries.csv"
+    ).iloc[:nb_queries, 0]
+
+    # judgement_df = pd.read_csv("D:\\2M\RI\TP\TP1\data\\test\judgements.csv").iloc[
+    #     :, :-1
+    # ]
+    judgement_df = pd.read_csv(
+        "../Information-Retrieval-Engine/data/test/judgements.csv"
+    ).iloc[:, :-1]
+
+    last_query_index = judgement_df[
+        judgement_df["query_number"] == nb_queries
+    ].index.max()
+    judgement_df = judgement_df.iloc[: last_query_index + 1, :]
+
     nb_true_documents = 0
     nb_retrieved_documents = 0
-    
+
     for i, query in enumerate(queries_df):
         df, _, query_processed = query_find(
             query, regex=regex, porter_stemmer=porter_stemmer
         )
-        docs_true = judgement_df[judgement_df["query_number"] == i + 1]['document'].tolist()
+        docs_true = judgement_df[judgement_df["query_number"] == i + 1][
+            "document"
+        ].tolist()
         docs_retrieved = df["Document"].tolist()
         for doc_true, doc_retrieved in zip(docs_true, docs_retrieved):
-            if doc_true== doc_retrieved:
+            if doc_true == doc_retrieved:
                 nb_true_documents += 1
         nb_retrieved_documents += len(docs_retrieved)
-        
+    precision = 0
+    precision5 = 0
     precision = precision(nb_true_documents, nb_retrieved_documents)
     precision5 = precision(nb_true_documents, 5)
-    
 
     return nb_true_documents
-evaluation_metrics(True, True, 2)
-'D1' == 'D1'
+
+
+# evaluation_metrics(True, True, 2)
+# "D1" == "D1"
 
 
 # build_freq_index("data/documents/*.txt", True, True)
