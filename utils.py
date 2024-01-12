@@ -349,19 +349,24 @@ def boolean_similarity(doc_terms, query):
 
 
 def boolean_model(query):
-    query_terms = query.split()
-    if valid(query_terms):
-        df = pd.read_csv("data/frequency_indexes/frequency_index_pre_porter_regex.csv")
-        documents = df["Document"].unique()
-        df_result = pd.DataFrame(columns=["Document", "Relevance"])
-        doc_terms = df[df["Document"] == "D1"]["Term"].to_list()
-        for doc in documents:
-            doc_terms = df[df["Document"] == doc]["Term"].to_list()
-            relevance = boolean_similarity(doc_terms, query)
-            if relevance == "YES":
-                df_result = df_result.append(
-                    {"Document": doc, "Relevance": relevance}, ignore_index=True
-                )
+    df_result = pd.DataFrame(columns=["Document", "Relevance"])
+    if query == "":
+        return df_result
+    else:
+        query_terms = query.split()
+        if valid(query_terms):
+            df = pd.read_csv(
+                "data/frequency_indexes/frequency_index_pre_porter_regex.csv"
+            )
+            documents = df["Document"].unique()
+            doc_terms = df[df["Document"] == "D1"]["Term"].to_list()
+            for doc in documents:
+                doc_terms = df[df["Document"] == doc]["Term"].to_list()
+                relevance = boolean_similarity(doc_terms, query)
+                if relevance == "YES":
+                    df_result = df_result.append(
+                        {"Document": doc, "Relevance": relevance}, ignore_index=True
+                    )
     return df_result
 
 
