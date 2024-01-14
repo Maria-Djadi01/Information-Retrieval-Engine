@@ -317,7 +317,7 @@ def mod_BM25(query, regex, porter_stemmer, k, b):
 
 
 # # query = "Document ranking"
-# query = "Documents ranking queries GPT-3.5"
+# !query = "Documents ranking queries GPT-3.5"
 # regex = True
 # porter_stemmer = True
 # k = 2
