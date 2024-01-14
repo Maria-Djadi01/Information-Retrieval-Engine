@@ -193,31 +193,32 @@ def cosin_similarity(query, regex, porter_stemmer):
     )
     documents = df["Document"].unique()
 
-    df_sum = {"Document": [], "Relevance": []}
-
-    v_sum_squared = 0
-    w_sum_squared = 0
+    df_sum = pd.DataFrame(columns=["Document", "Relevance"])
 
     for doc in documents:
+        df_doc = df[df["Document"] == doc]
+        df_doc["Weight"] = df_doc["Weight"].apply(lambda x: x**2)
+        w_sum_squared = df_doc["Weight"].sum()
+        v_sum_squared = len(query_processed)
+
         relevance = 0
         for term in query_processed:
             term_rows = df[(df["Document"] == doc) & (df["Term"] == term)]
             if not term_rows.empty:
                 weight = term_rows["Weight"].values[0]
                 relevance += weight
-                w_sum_squared += weight**2
-                v_sum_squared += 1
 
+        v_sum_sqrt = math.sqrt(v_sum_squared)
+        w_sum_sqrt = math.sqrt(w_sum_squared)
+
+        if v_sum_sqrt != 0 and w_sum_sqrt != 0:
+            relevance = relevance / (v_sum_sqrt * w_sum_sqrt)
         if relevance != 0:
-            df_sum["Document"].append(doc)
-            df_sum["Relevance"].append(relevance)
+            df_sum = df_sum.append(
+                {"Document": doc, "Relevance": relevance}, ignore_index=True
+            )
 
-    df_sum = pd.DataFrame(df_sum).sort_values(by=["Relevance"], ascending=False)
-
-    v_sum_sqrt = math.sqrt(v_sum_squared)
-    w_sum_sqrt = math.sqrt(w_sum_squared)
-
-    df_sum["Relevance"] = df_sum["Relevance"] / (v_sum_sqrt * w_sum_sqrt)
+    df_sum = df_sum.sort_values(by=["Relevance"], ascending=False, ignore_index=True)
 
     return df_sum
 
@@ -227,26 +228,30 @@ def jaccard_measure(query, regex, porter_stemmer):
         query, regex=regex, porter_stemmer=porter_stemmer
     )
     documents = df["Document"].unique()
-    df_sum = {"Document": [], "Relevence": []}
+
+    df_sum = pd.DataFrame(columns=["Document", "Relevance"])
+
     for doc in documents:
-        relvence = 0
+        df_doc = df[df["Document"] == doc]
+        df_doc["Weight"] = df_doc["Weight"].apply(lambda x: x**2)
+        w_sum_squared = df_doc["Weight"].sum()
+        v_sum_squared = len(query_processed)
+        relevance = 0
         for term in query_processed:
-            term_list = df[df["Document"] == doc]["Term"].tolist()
-            if term in term_list:
-                weight = df[(df["Document"] == doc) & (df["Term"] == term)][
-                    "Weight"
-                ].values[0]
-                relvence += weight
-        if relvence != 0:
-            df_sum["Document"].append(doc)
-            df_sum["Relevence"].append(relvence)
-    df_sum = pd.DataFrame(df_sum).sort_values(by=["Relevence"], ascending=False)
-    v_sum_sqrt = math.sqrt(sum([i**2 for i in range(1, len(query_processed) + 1)]))
-    w_sum_sqrt = math.sqrt(sum(df_sum["Relevence"] ** 2))
-    df_sum["Relevence"] = df_sum["Relevence"] / (
-        v_sum_sqrt + w_sum_sqrt - df_sum["Relevence"]
-    )
-    return pd.DataFrame(df_sum).sort_values(by=["Relevence"], ascending=False)
+            term_rows = df[(df["Document"] == doc) & (df["Term"] == term)]
+            if not term_rows.empty:
+                weight = term_rows["Weight"].values[0]
+                relevance += weight
+                # v_sum_squared += 1
+
+        if relevance != 0:
+            relevance = relevance / (v_sum_squared + w_sum_squared - relevance)
+            df_sum = df_sum.append(
+                {"Document": doc, "Relevance": relevance}, ignore_index=True
+            )
+
+    df_sum = df_sum.sort_values(by=["Relevance"], ascending=False, ignore_index=True)
+    return df_sum
 
 
 def model_BM25(query, regex, porter_stemmer, k, b):
@@ -254,7 +259,8 @@ def model_BM25(query, regex, porter_stemmer, k, b):
         query, regex=regex, porter_stemmer=porter_stemmer
     )
     print(_, query_processed)
-    df_sum = {"Document": [], "Relevence": []}
+    # df_sum = {"Document": [], "Relevence": []}
+    df_sum = pd.DataFrame(columns=["Document", "Relevance"])
 
     documents = df["Document"].unique()
     # Calculate the mean number of terms in documents
@@ -290,31 +296,32 @@ def mod_BM25(query, regex, porter_stemmer, k, b):
     _, df, query_processed = query_find(
         query, regex=regex, porter_stemmer=porter_stemmer
     )
-    # print(_, query_processed)
-    df_sum = {"Document": [], "Relevence": []}
+    df_sum = pd.DataFrame(columns=["Document", "Relevance"])
 
     documents = df["Document"].unique()
     N = len(documents)
+    avdl = (df["Frequency"].sum()) / N
     term_in_doc = _.groupby("Term", as_index=False)["Document"].count()
     for doc in documents:
-        # i want to get the sum of terms considering their frequenncy
         dl = df[df["Document"] == doc]["Frequency"].sum()
-        avdl = (df["Frequency"].sum()) / N
         relevance = 0
         for term in query_processed:
-            ni = _.groupby("Term", as_index=False)["Document"].count()
+            ni = term_in_doc[term_in_doc["Term"] == term]["Document"]
             doc_df = df[df["Document"] == doc]
-            if "document" in doc_df["Term"].values:
-                freq = doc_df[doc_df["Term"] == "document"]["Frequency"].values[0]
-                ni = term_in_doc[term_in_doc["Term"] == term]["Document"]
-                right = freq / (k * (1 - b) + b * (dl / avdl) + freq)
+            if term in doc_df["Term"].values:
+                freq = doc_df[doc_df["Term"] == term]["Frequency"].values[0]
+                right = freq / ((k * ((1 - b) + b * (dl / avdl))) + freq)
                 left = math.log10((N - ni + 0.5) / (ni + 0.5))
                 relevance += right * left
         if relevance != 0:
-            df_sum["Document"].append(doc)
-            df_sum["Relevence"].append(relevance)
-    return pd.DataFrame(df_sum).sort_values(by=["Relevence"], ascending=False)
+            df_sum = df_sum.append(
+                {"Document": doc, "Relevance": relevance}, ignore_index=True
+            )
+    df_sum = df_sum.sort_values(by=["Relevance"], ascending=False, ignore_index=True)
+    return df_sum
 
+
+mod_BM25("Document ranking", True, True, 2, 1.5)
 
 # # query = "Document ranking"
 # !query = "Documents ranking queries GPT-3.5"
