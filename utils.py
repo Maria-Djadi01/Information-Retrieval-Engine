@@ -259,8 +259,7 @@ def model_BM25(query, regex, porter_stemmer, k, b):
         query, regex=regex, porter_stemmer=porter_stemmer
     )
     print(_, query_processed)
-    # df_sum = {"Document": [], "Relevence": []}
-    df_sum = pd.DataFrame(columns=["Document", "Relevance"])
+    df_sum = {"Document": [], "Relevence": []}
 
     documents = df["Document"].unique()
     # Calculate the mean number of terms in documents
@@ -321,21 +320,7 @@ def mod_BM25(query, regex, porter_stemmer, k, b):
     return df_sum
 
 
-mod_BM25("Document ranking", True, True, 2, 1.5)
-
-# # query = "Document ranking"
-# !query = "Documents ranking queries GPT-3.5"
-# regex = True
-# porter_stemmer = True
-# k = 2
-# b = 1.5
-# mod_BM25(
-#     query,
-#     regex=regex,
-#     porter_stemmer=porter_stemmer,
-#     k=float(k),
-#     b=float(b),
-# )
+# mod_BM25("Document ranking", True, True, 2, 1.5)
 
 
 # check if the query is valid or not
