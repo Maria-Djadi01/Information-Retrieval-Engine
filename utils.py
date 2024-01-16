@@ -206,18 +206,20 @@ def cosin_similarity(query, regex, porter_stemmer):
                 weight = term_rows["Weight"].values[0]
                 relevance += weight
                 w_sum_squared += weight**2
-                v_sum_squared += 1
+                v_sum_squared += term_rows["Frequency"].values[0]**2
+        v_sum_sqrt = math.sqrt(v_sum_squared)
+        w_sum_sqrt = math.sqrt(w_sum_squared)
 
         if relevance != 0:
+            relevance = relevance / (v_sum_sqrt * w_sum_sqrt)
             df_sum["Document"].append(doc)
             df_sum["Relevance"].append(relevance)
 
     df_sum = pd.DataFrame(df_sum).sort_values(by=["Relevance"], ascending=False)
 
-    v_sum_sqrt = math.sqrt(v_sum_squared)
-    w_sum_sqrt = math.sqrt(w_sum_squared)
 
-    df_sum["Relevance"] = df_sum["Relevance"] / (v_sum_sqrt * w_sum_sqrt)
+
+    # df_sum["Relevance"] = df_sum["Relevance"] / (v_sum_sqrt * w_sum_sqrt)
 
     return df_sum
 
@@ -259,7 +261,7 @@ def model_BM25(query, regex, porter_stemmer, k, b):
     # Calculate the mean number of terms in documents
     doc_term_counts = []
     for doc in documents:
-        term_count = df[df["Document"] == doc]["Term"].nunique()
+        term_count = df[df["Document"] == doc]["Frequency"].sum()
         doc_term_counts.append(term_count)
 
     avdl = sum(doc_term_counts) / len(doc_term_counts)
@@ -274,7 +276,7 @@ def model_BM25(query, regex, porter_stemmer, k, b):
                 freq = df[(df["Document"] == doc) & (df["Term"] == term)][
                     "Frequency"
                 ].values[0]
-                dl = df[df["Document"] == doc]["Term"].nunique()
+                dl = df[df["Document"] == doc]["Frequency"].sum()
                 ni = df[df["Term"] == term]["Document"].nunique()
                 term_sum += (
                     freq / (k * (1 - b) + b * (dl / avdl) + freq)

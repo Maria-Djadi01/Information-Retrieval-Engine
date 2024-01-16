@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from utils import *
 
 test_queries = pd.read_csv("data/test/queries.csv")
+nb_query = None
 
 st.set_page_config(layout="wide")
 
