@@ -1,9 +1,11 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
 from nltk import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer, LancasterStemmer
 import glob
 import re
-import pandas as pd
 import math
 import nltk
 
@@ -193,33 +195,30 @@ def cosin_similarity(query, regex, porter_stemmer):
     )
     documents = df["Document"].unique()
 
-    df_sum = {"Document": [], "Relevance": []}
-
-    v_sum_squared = 0
-    w_sum_squared = 0
+    df_sum = pd.DataFrame(columns=["Document", "Relevance"])
 
     for doc in documents:
+        df_doc = df[df["Document"] == doc]
+        df_doc["Weight"] = df_doc["Weight"].apply(lambda x: x**2)
+        w_sum_squared = df_doc["Weight"].sum()
+        v_sum_squared = len(query_processed)
+
         relevance = 0
         for term in query_processed:
             term_rows = df[(df["Document"] == doc) & (df["Term"] == term)]
             if not term_rows.empty:
                 weight = term_rows["Weight"].values[0]
                 relevance += weight
-                w_sum_squared += weight**2
-                v_sum_squared += term_rows["Frequency"].values[0]**2
+
         v_sum_sqrt = math.sqrt(v_sum_squared)
         w_sum_sqrt = math.sqrt(w_sum_squared)
 
-        if relevance != 0:
+        if v_sum_sqrt != 0 and w_sum_sqrt != 0:
             relevance = relevance / (v_sum_sqrt * w_sum_sqrt)
-            df_sum["Document"].append(doc)
-            df_sum["Relevance"].append(relevance)
+        if relevance != 0:
+            df_sum.loc[len(df_sum)] = {"Document": doc, "Relevance": relevance}
 
-    df_sum = pd.DataFrame(df_sum).sort_values(by=["Relevance"], ascending=False)
-
-
-
-    # df_sum["Relevance"] = df_sum["Relevance"] / (v_sum_sqrt * w_sum_sqrt)
+    df_sum = df_sum.sort_values(by=["Relevance"], ascending=False, ignore_index=True)
 
     return df_sum
 
@@ -229,32 +228,35 @@ def jaccard_measure(query, regex, porter_stemmer):
         query, regex=regex, porter_stemmer=porter_stemmer
     )
     documents = df["Document"].unique()
-    df_sum = {"Document": [], "Relevence": []}
+
+    df_sum = pd.DataFrame(columns=["Document", "Relevance"])
+
     for doc in documents:
-        relvence = 0
+        df_doc = df[df["Document"] == doc]
+        df_doc["Weight"] = df_doc["Weight"].apply(lambda x: x**2)
+        w_sum_squared = df_doc["Weight"].sum()
+        v_sum_squared = len(query_processed)
+        relevance = 0
         for term in query_processed:
-            term_list = df[df["Document"] == doc]["Term"].tolist()
-            if term in term_list:
-                weight = df[(df["Document"] == doc) & (df["Term"] == term)][
-                    "Weight"
-                ].values[0]
-                relvence += weight
-        if relvence != 0:
-            df_sum["Document"].append(doc)
-            df_sum["Relevence"].append(relvence)
-    df_sum = pd.DataFrame(df_sum).sort_values(by=["Relevence"], ascending=False)
-    v_sum_sqrt = math.sqrt(sum([i**2 for i in range(1, len(query_processed) + 1)]))
-    w_sum_sqrt = math.sqrt(sum(df_sum["Relevence"] ** 2))
-    df_sum["Relevence"] = df_sum["Relevence"] / (
-        v_sum_sqrt + w_sum_sqrt - df_sum["Relevence"]
-    )
-    return pd.DataFrame(df_sum).sort_values(by=["Relevence"], ascending=False)
+            term_rows = df[(df["Document"] == doc) & (df["Term"] == term)]
+            if not term_rows.empty:
+                weight = term_rows["Weight"].values[0]
+                relevance += weight
+                # v_sum_squared += 1
+
+        if relevance != 0:
+            relevance = relevance / (v_sum_squared + w_sum_squared - relevance)
+            df_sum.loc[len(df_sum)] = {"Document": doc, "Relevance": relevance}
+
+    df_sum = df_sum.sort_values(by=["Relevance"], ascending=False, ignore_index=True)
+    return df_sum
 
 
 def model_BM25(query, regex, porter_stemmer, k, b):
     _, df, query_processed = query_find(
         query, regex=regex, porter_stemmer=porter_stemmer
     )
+    print(_, query_processed)
     df_sum = {"Document": [], "Relevence": []}
 
     documents = df["Document"].unique()
@@ -285,6 +287,38 @@ def model_BM25(query, regex, porter_stemmer, k, b):
             df_sum["Document"].append(doc)
             df_sum["Relevence"].append(term_sum)
     return pd.DataFrame(df_sum).sort_values(by=["Relevence"], ascending=False)
+
+
+def mod_BM25(query, regex, porter_stemmer, k, b):
+    _, df, query_processed = query_find(
+        query, regex=regex, porter_stemmer=porter_stemmer
+    )
+    df_sum = pd.DataFrame(columns=["Document", "Relevance"])
+
+    documents = df["Document"].unique()
+    N = len(documents)
+    avdl = (df["Frequency"].sum()) / N
+    term_in_doc = _.groupby("Term", as_index=False)["Document"].count()
+    for doc in documents:
+        dl = df[df["Document"] == doc]["Frequency"].sum()
+        relevance = 0
+        for term in query_processed:
+            ni = term_in_doc[term_in_doc["Term"] == term]["Document"]
+            doc_df = df[df["Document"] == doc]
+            if term in doc_df["Term"].values:
+                freq = doc_df[doc_df["Term"] == term]["Frequency"].values[0]
+                right = freq / ((k * ((1 - b) + b * (dl / avdl))) + freq)
+                left = math.log10((N - ni + 0.5) / (ni + 0.5))
+                relevance += right * left
+        if relevance != 0:
+            df_sum = df_sum.append(
+                {"Document": doc, "Relevance": relevance}, ignore_index=True
+            )
+    df_sum = df_sum.sort_values(by=["Relevance"], ascending=False, ignore_index=True)
+    return df_sum
+
+
+# mod_BM25("Document ranking", True, True, 2, 1.5)
 
 
 # check if the query is valid or not
@@ -380,8 +414,20 @@ def precision(docs_retrieved, denominator):
     for doc in docs_retrieved:
         if doc:
             nb_docs_true += 1
-    
+
     return nb_docs_true / denominator
+
+
+def precision_plot_arr(docs_retrieved):
+    print(docs_retrieved)
+    nb_docs_true = 0
+    precision_arr = []
+    for i, doc in enumerate(docs_retrieved):
+        if doc:
+            nb_docs_true += 1
+        print(f"({nb_docs_true} / {i+1})")
+        precision_arr.append(nb_docs_true / (i+1))
+    return precision_arr
 
 
 def recall(docs_retrieved, nb_true_documents):
@@ -392,26 +438,52 @@ def recall(docs_retrieved, nb_true_documents):
     return nb_docs_true / nb_true_documents
 
 
+def recall_plot_arr(docs_retrieved):
+    nb_docs_true_1 = 0
+    recall_arr = []
+    for doc in docs_retrieved:
+        if doc:
+            nb_docs_true_1 += 1
+    nb_docs_true_2 = 0
+    for doc in docs_retrieved:
+        if doc:
+            nb_docs_true_2 += 1
+        print(f"({nb_docs_true_2} / {nb_docs_true_1})")
+        recall_arr.append(nb_docs_true_2 / nb_docs_true_1)
+    return recall_arr
+
+
 def f_score(precision, recall):
     return 2 * precision * recall / (precision + recall)
+
+
+def interpolate_precision_recall(prec_arr, rec_arr):
+    rec_arr = np.array(rec_arr)
+    prec_arr = np.array(prec_arr)
+    interpolated_recall = np.linspace(0, 1, len(rec_arr) + 1)
+    interpolated_prec = np.zeros(rec_arr.shape[0] + 1)
+    interpolated_prec[0] = 1
+    
+    for i in range(len(rec_arr)):
+        # interplotaed_prec[i+1] = the max of precisions where the recall is greater then or equal the the rec_arr[i+1]
+        print(prec_arr[rec_arr >= interpolated_recall[i+1]])
+        interpolated_prec[i+1] = np.max(prec_arr[rec_arr >= interpolated_recall[i+1]])
+    return interpolated_prec, interpolated_recall
 
 
 def evaluation_metrics(regex, porter_stemmer, nb_query):
     query_df = pd.read_csv("data/test/queries.csv")
     query = query_df.iloc[nb_query - 1]["query"]
 
-    judgement_df = pd.read_csv("data/test/judgements.csv").iloc[
-        :, :-1
-    ]
+    judgement_df = pd.read_csv("data/test/judgements.csv").iloc[:, :-1]
     judgement_df = judgement_df[judgement_df["query_number"] == nb_query]
-
 
     df, _, query_processed = query_find(
         query, regex=regex, porter_stemmer=porter_stemmer
     )
     docs_true = judgement_df["document"].tolist()
     docs_retrieved = df["Document"].unique().tolist()
-    
+
     retrieved_documents = []
     for doc in docs_retrieved:
         retrieved_documents.append(doc in docs_true)
@@ -421,12 +493,33 @@ def evaluation_metrics(regex, porter_stemmer, nb_query):
     prec_10 = precision(retrieved_documents[:10], 10)
     rec = recall(retrieved_documents, len(docs_true))
     f_sc = f_score(prec, rec)
-    
 
-    return query, prec, prec_5, prec_10, rec, f_sc
+    prec_arr = precision_plot_arr(retrieved_documents)
+    rec_arr = recall_plot_arr(retrieved_documents)
+    print(f"Precision array : {prec_arr}")
+    print(f"Recall array : {rec_arr}")
+    interpolated_prec, interpolated_recall = interpolate_precision_recall(
+        prec_arr, rec_arr
+    )
+
+    return (
+        query,
+        prec,
+        prec_5,
+        prec_10,
+        rec,
+        f_sc,
+        interpolated_prec,
+        interpolated_recall,
+    )
 
 
-evaluation_metrics(True, True, 2)
+# evaluation_metrics(True, True, 2)
+eval_array = [True, False, True, False, True, True, False, False, False, False]
+prec_arr = precision_plot_arr(eval_array)
+rec_arr = recall_plot_arr(eval_array)
+interpolate_precision_recall(prec_arr, rec_arr)
+
 
 
 # build_freq_index("data/documents/*.txt", True, True)
