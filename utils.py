@@ -320,7 +320,7 @@ def mod_BM25(query, regex, porter_stemmer, k, b):
     return df_sum
 
 
-# mod_BM25("Document ranking", True, True, 2, 1.5)
+mod_BM25("Documents AND NOT ranking OR queries OR GPT-3.5", True, True, 2, 0.75)
 
 
 # check if the query is valid or not
