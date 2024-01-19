@@ -166,97 +166,108 @@ def search_document(documents_number, regex, porter_stemmer):
 
 
 def scalar_product(query, regex, porter_stemmer):
-    _, df, query_precessed = query_find(
+    _, df, query_processed = query_find(
         query, regex=regex, porter_stemmer=porter_stemmer
     )
     documents = df["Document"].unique()
-    df_sum = {
-        "Document": [],
-        "Relevence": [],
-    }
+
+    df_sum = pd.DataFrame(columns=["Document", "Relevance"])
+
     for doc in documents:
-        relvence = 0
-        for term in query_precessed:
-            term_list = df[df["Document"] == doc]["Term"].tolist()
-            if term in term_list:
-                weight = df[(df["Document"] == doc) & (df["Term"] == term)][
-                    "Weight"
-                ].values[0]
-                relvence += weight
-        if relvence != 0:
-            df_sum["Document"].append(doc)
-            df_sum["Relevence"].append(relvence)
-    return pd.DataFrame(df_sum).sort_values(by=["Relevence"], ascending=False)
+        term_weights = df[(df["Document"] == doc) & (df["Term"].isin(query_processed))][
+            ["Term", "Weight"]
+        ]
+
+        if not term_weights.empty:
+            relevance = term_weights["Weight"].sum()
+            if relevance != 0:
+                df_sum = pd.concat(
+                    [
+                        df_sum,
+                        pd.DataFrame({"Document": [doc], "Relevance": [relevance]}),
+                    ],
+                    ignore_index=True,
+                )
+
+    df_sum = df_sum.sort_values(by=["Relevance"], ascending=False, ignore_index=True)
+
+    return df_sum
+
+
+scalar_product("Documents AND NOT ranking OR queries OR GPT-3.5", True, True)
 
 
 def cosin_similarity(query, regex, porter_stemmer):
     _, df, query_processed = query_find(
         query, regex=regex, porter_stemmer=porter_stemmer
     )
-    documents = df["Document"].unique()
 
     df_sum = pd.DataFrame(columns=["Document", "Relevance"])
 
-    for doc in documents:
-        df_doc = df[df["Document"] == doc]
-        df_doc["Weight"] = df_doc["Weight"].apply(lambda x: x**2)
+    for doc in df["Document"].unique():
+        df_doc = df[df["Document"] == doc].copy()
+        df_doc["Weight"] **= 2
         w_sum_squared = df_doc["Weight"].sum()
+
+        term_weights = df[(df["Document"] == doc) & (df["Term"].isin(query_processed))][
+            ["Term", "Weight"]
+        ]
+        relevance = term_weights["Weight"].sum()
+
         v_sum_squared = len(query_processed)
-
-        relevance = 0
-        for term in query_processed:
-            term_rows = df[(df["Document"] == doc) & (df["Term"] == term)]
-            if not term_rows.empty:
-                weight = term_rows["Weight"].values[0]
-                relevance += weight
-
         v_sum_sqrt = math.sqrt(v_sum_squared)
         w_sum_sqrt = math.sqrt(w_sum_squared)
 
         if v_sum_sqrt != 0 and w_sum_sqrt != 0:
-            relevance = relevance / (v_sum_sqrt * w_sum_sqrt)
+            relevance /= v_sum_sqrt * w_sum_sqrt
+
         if relevance != 0:
             df_sum.loc[len(df_sum)] = {"Document": doc, "Relevance": relevance}
 
-    df_sum = df_sum.sort_values(by=["Relevance"], ascending=False, ignore_index=True)
+    df_sum = df_sum.sort_values(by=["Relevance"], ascending=False)
 
     return df_sum
+
+
+# cosin_similarity("Documents AND NOT ranking OR queries OR GPT-3.5", True, True)
 
 
 def jaccard_measure(query, regex, porter_stemmer):
     _, df, query_processed = query_find(
         query, regex=regex, porter_stemmer=porter_stemmer
     )
-    documents = df["Document"].unique()
 
     df_sum = pd.DataFrame(columns=["Document", "Relevance"])
 
-    for doc in documents:
-        df_doc = df[df["Document"] == doc]
-        df_doc["Weight"] = df_doc["Weight"].apply(lambda x: x**2)
+    for doc in df["Document"].unique():
+        df_doc = df[df["Document"] == doc].copy()
         w_sum_squared = df_doc["Weight"].sum()
+
+        term_weights = df[(df["Document"] == doc) & (df["Term"].isin(query_processed))][
+            ["Term", "Weight"]
+        ]
+        relevance = term_weights["Weight"].sum()
+
         v_sum_squared = len(query_processed)
-        relevance = 0
-        for term in query_processed:
-            term_rows = df[(df["Document"] == doc) & (df["Term"] == term)]
-            if not term_rows.empty:
-                weight = term_rows["Weight"].values[0]
-                relevance += weight
-                # v_sum_squared += 1
 
         if relevance != 0:
-            relevance = relevance / (v_sum_squared + w_sum_squared - relevance)
+            intersection = v_sum_squared + w_sum_squared - relevance
+            relevance /= intersection
             df_sum.loc[len(df_sum)] = {"Document": doc, "Relevance": relevance}
 
-    df_sum = df_sum.sort_values(by=["Relevance"], ascending=False, ignore_index=True)
+    df_sum = df_sum.sort_values(by=["Relevance"], ascending=False)
+
     return df_sum
+
+
+# jaccard_measure("Documents AND NOT ranking OR queries OR GPT-3.5", True, True)
 
 
 def model_BM25(query, regex, porter_stemmer, k, b):
     _, df, query_processed = query_find(
         query, regex=regex, porter_stemmer=porter_stemmer
     )
-    print(_, query_processed)
+    # print(_, query_processed)
     df_sum = {"Document": [], "Relevence": []}
 
     documents = df["Document"].unique()
@@ -311,13 +322,16 @@ def mod_BM25(query, regex, porter_stemmer, k, b):
                 left = math.log10((N - ni + 0.5) / (ni + 0.5))
                 relevance += right * left
         if relevance != 0:
-            df_sum = pd.concat([df_sum, pd.DataFrame({"Document": [doc], "Relevance": [relevance]})], ignore_index=True)
+            df_sum = pd.concat(
+                [df_sum, pd.DataFrame({"Document": [doc], "Relevance": [relevance]})],
+                ignore_index=True,
+            )
 
     df_sum = df_sum.sort_values(by=["Relevance"], ascending=False, ignore_index=True)
     return df_sum
 
 
-mod_BM25("Documents AND NOT ranking OR queries OR GPT-3.5", True, True, 2, 0.75)
+# model_BM25("Documents AND NOT ranking OR queries OR GPT-3.5", True, True, 2, 0.75)
 
 
 # check if the query is valid or not
@@ -425,7 +439,7 @@ def precision_plot_arr(docs_retrieved):
         if doc:
             nb_docs_true += 1
         print(f"({nb_docs_true} / {i+1})")
-        precision_arr.append(nb_docs_true / (i+1))
+        precision_arr.append(nb_docs_true / (i + 1))
     return precision_arr
 
 
@@ -462,11 +476,13 @@ def interpolate_precision_recall(prec_arr, rec_arr):
     interpolated_recall = np.linspace(0, 1, len(rec_arr) + 1)
     interpolated_prec = np.zeros(rec_arr.shape[0] + 1)
     interpolated_prec[0] = 1
-    
+
     for i in range(len(rec_arr)):
         # interplotaed_prec[i+1] = the max of precisions where the recall is greater then or equal the the rec_arr[i+1]
-        print(prec_arr[rec_arr >= interpolated_recall[i+1]])
-        interpolated_prec[i+1] = np.max(prec_arr[rec_arr >= interpolated_recall[i+1]])
+        print(prec_arr[rec_arr >= interpolated_recall[i + 1]])
+        interpolated_prec[i + 1] = np.max(
+            prec_arr[rec_arr >= interpolated_recall[i + 1]]
+        )
     return interpolated_prec, interpolated_recall
 
 
@@ -518,7 +534,6 @@ def evaluation_metrics(regex, porter_stemmer, nb_query):
 # prec_arr = precision_plot_arr(eval_array)
 # rec_arr = recall_plot_arr(eval_array)
 # interpolate_precision_recall(prec_arr, rec_arr)
-
 
 
 # build_freq_index("data/documents/*.txt", True, True)
