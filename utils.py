@@ -311,9 +311,8 @@ def mod_BM25(query, regex, porter_stemmer, k, b):
                 left = math.log10((N - ni + 0.5) / (ni + 0.5))
                 relevance += right * left
         if relevance != 0:
-            df_sum = df_sum.append(
-                {"Document": doc, "Relevance": relevance}, ignore_index=True
-            )
+            df_sum = pd.concat([df_sum, pd.DataFrame({"Document": [doc], "Relevance": [relevance]})], ignore_index=True)
+
     df_sum = df_sum.sort_values(by=["Relevance"], ascending=False, ignore_index=True)
     return df_sum
 
@@ -514,11 +513,11 @@ def evaluation_metrics(regex, porter_stemmer, nb_query):
     )
 
 
-# evaluation_metrics(True, True, 2)
-eval_array = [True, False, True, False, True, True, False, False, False, False]
-prec_arr = precision_plot_arr(eval_array)
-rec_arr = recall_plot_arr(eval_array)
-interpolate_precision_recall(prec_arr, rec_arr)
+# # evaluation_metrics(True, True, 2)
+# eval_array = [True, False, True, False, True, True, False, False, False, False]
+# prec_arr = precision_plot_arr(eval_array)
+# rec_arr = recall_plot_arr(eval_array)
+# interpolate_precision_recall(prec_arr, rec_arr)
 
 
 

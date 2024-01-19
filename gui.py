@@ -35,12 +35,6 @@ with section2:
             )
         with vec_sec2:
             nb_query = st.number_input(label="Number of query", min_value=1, max_value=len(test_queries), value=1, step=1)
-    if matching and matching_model == "Vector Space Model":
-        # make a random courbe
-        x = np.linspace(0, 10, 100)
-        y = np.random.randn(100)
-        df_chart = pd.DataFrame({"x": x, "y": y})
-        st.line_chart(df_chart, x="x", y="y")
 
 with section1:
     check_col1, radio_col2 = st.columns(2)
@@ -60,9 +54,13 @@ with section1:
     )
     
     if nb_query:
-        query_eval, prec, prec_5, prec_10, rec, f_sc = evaluation_metrics(
+        query_eval, prec, prec_5, prec_10, rec, f_sc, interpolated_prec, interpolated_recall, = evaluation_metrics(
                     regex=regex, porter_stemmer=porter_stemmer, nb_query=int(nb_query)
                 )
+        with section2:
+            # draw the interpolated_prec, interpolated_recall
+            df_chart = pd.DataFrame({"x": interpolated_recall, "y": interpolated_prec})
+            st.line_chart(df_chart, x="x", y="y")
     else:
         query_eval = ""
     query = st.text_input(label="Search", placeholder="Enter your query here", value=query_eval if nb_query is not None else None)
