@@ -194,7 +194,7 @@ def scalar_product(query, regex, porter_stemmer):
     return df_sum
 
 
-scalar_product("Documents AND NOT ranking OR queries OR GPT-3.5", True, True)
+# scalar_product("Documents AND NOT ranking OR queries OR GPT-3.5", True, True)
 
 
 def cosin_similarity(query, regex, porter_stemmer):
@@ -402,16 +402,15 @@ def boolean_similarity(doc_terms, query):
 
 def boolean_model(query):
     df_result = pd.DataFrame(columns=["Document", "Relevance"])
-    if query == "":
+    if query == " ":
         return df_result
     else:
         query_terms = query.split()
         if valid(query_terms):
             df = pd.read_csv(
-                "data/frequency_indexes/frequency_index_pre_porter_regex.csv"
+                "data/frequency_indexes/TP/frequency_index_pre_porter_regex.csv"
             )
             documents = df["Document"].unique()
-            doc_terms = df[df["Document"] == "D1"]["Term"].to_list()
             for doc in documents:
                 doc_terms = df[df["Document"] == doc]["Term"].to_list()
                 relevance = boolean_similarity(doc_terms, query)
