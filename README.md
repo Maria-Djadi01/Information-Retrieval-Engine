@@ -1,5 +1,4 @@
 # Information Retrieval Engine Project
-==========================================
 
 
 ## Introduction
